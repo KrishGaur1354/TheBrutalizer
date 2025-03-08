@@ -1,0 +1,33 @@
+{
+  "name": "brutalist",
+  "version": "1.0.0",
+  "description": "A brutalist building generator using Three.js",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "brutalist",
+    "architecture",
+    "three.js",
+    "3D",
+    "generator"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@react-three/drei": "^9.77.0",
+    "@react-three/fiber": "^8.13.0",
+    "@react-three/postprocessing": "^2.7.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "html-to-image": "^1.11.13",
+    "postprocessing": "^6.37.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "styled-components": "^6.1.15",
+    "three": "^0.157.0",
+    "vite": "^4.3.9"
+  }
+}
