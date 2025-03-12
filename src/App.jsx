@@ -34,6 +34,10 @@ function App() {
     textureRoughness: 0.8,
     concreteColor: '#cccccc',
     buildingName: 'BRUTALIST TOWER',
+    cloudDensity: 0.7,
+    rooftopGarden: false,
+    groundPark: false,
+    captureRequested: false,
   });
   
   const [showAboutModal, setShowAboutModal] = useState(false);

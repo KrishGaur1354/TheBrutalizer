@@ -1,0 +1,69 @@
+/* Global brutalist styles */
+body {
+  background-color: #111;
+  color: #ddd;
+  font-family: 'Courier New', monospace;
+  margin: 0;
+  padding: 0;
+}
+
+/* Brutalist button styling */
+.capture-button, .button {
+  background: none;
+  border: 3px solid #ddd;
+  color: #ddd;
+  padding: 10px 20px;
+  font-size: 16px;
+  text-transform: uppercase;
+  cursor: pointer;
+  letter-spacing: 2px;
+  transition: background 0.3s, color 0.3s;
+}
+
+.capture-button:hover, .button:hover {
+  background: #ddd;
+  color: #111;
+}
+
+/* Control panel brutalist design */
+.control-panel {
+  border: 3px solid #ddd;
+  padding: 20px;
+  margin: 20px;
+  background-color: #222;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+/* Brutalist slider styling */
+input[type='range'] {
+  -webkit-appearance: none;
+  width: 100%;
+  margin: 10px 0;
+  background: transparent;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #ddd;
+  border: 2px solid #111;
+  cursor: pointer;
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #ddd;
+  border: 2px solid #111;
+  cursor: pointer;
+}
+
+/* Captured image container styling */
+.captured-image-container {
+  margin-top: 20px;
+  border: 3px solid #ddd;
+  padding: 10px;
+  background-color: #000;
+} 

@@ -1,0 +1,82 @@
+.control-panel {
+  background-color: #1a1a1a;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  border: 4px solid #fff;
+  padding: 20px;
+  margin: 20px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  text-transform: uppercase;
+  width: 300px;
+  position: relative;
+}
+
+.control-panel__title {
+  font-size: 24px;
+  margin-bottom: 20px;
+  text-align: center;
+  letter-spacing: 2px;
+  border-bottom: 2px solid #fff;
+  padding-bottom: 10px;
+}
+
+.control-item {
+  margin-bottom: 20px;
+}
+
+.control-item label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.brutalist-slider {
+  width: 100%;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  background: #333;
+  outline: none;
+  border: 2px solid #fff;
+}
+
+.brutalist-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 30px;
+  background: #fff;
+  cursor: pointer;
+  border: 0;
+}
+
+.brutalist-slider::-moz-range-thumb {
+  width: 20px;
+  height: 30px;
+  background: #fff;
+  cursor: pointer;
+  border: 0;
+}
+
+.reset-button {
+  background-color: #fff;
+  color: #000;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  border: none;
+  padding: 12px 20px;
+  margin-top: 20px;
+  cursor: pointer;
+  width: 100%;
+  font-size: 16px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.reset-button:hover {
+  background-color: #ddd;
+} 

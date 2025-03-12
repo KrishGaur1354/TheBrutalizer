@@ -86,16 +86,23 @@ export const generateBuildingParams = (config) => {
 
 // Generate window positions based on config
 export const generateWindowPositions = (config, buildingParams) => {
-  const { windowDensity, seed = Math.random() } = config;
-  const { width, depth, floors, floorHeight } = buildingParams;
-  
+  const { windowDensity, floors, seed = Math.random() } = config;
+  const { width, depth, floorHeight = 3 } = buildingParams;
   const windows = [];
   
-  // Calculate number of potential windows per floor
+  // Helper function to determine if a window should be placed
+  const randomBool = (probability, uniqueSeed) => {
+    const x = Math.sin(uniqueSeed * 12.9898) * 43758.5453;
+    return (x - Math.floor(x)) < probability;
+  };
+  
+  // Calculate window spacing
   const frontBackWindowsPerFloor = Math.floor(width / 2);
   const leftRightWindowsPerFloor = Math.floor(depth / 2);
   
-  // Generate windows for each floor
+  // Use minimal window offset to prevent z-fighting but keep windows flush with walls
+  const windowOffset = 0.001;
+  
   for (let floor = 0; floor < floors; floor++) {
     const floorY = floor * floorHeight;
     
@@ -104,7 +111,7 @@ export const generateWindowPositions = (config, buildingParams) => {
       if (randomBool(windowDensity, seed + floor * 0.01 + i * 0.001)) {
         const windowX = -width / 2 + 1 + i * 2;
         windows.push({
-          position: [windowX, floorY + floorHeight / 2, depth / 2 + 0.1],
+          position: [windowX, floorY + floorHeight / 2, -depth / 2],
           rotation: [0, 0, 0],
           size: [1.5, 1.5],
           face: 'front',
@@ -118,7 +125,7 @@ export const generateWindowPositions = (config, buildingParams) => {
       if (randomBool(windowDensity, seed + floor * 0.01 + (i + frontBackWindowsPerFloor) * 0.001)) {
         const windowX = -width / 2 + 1 + i * 2;
         windows.push({
-          position: [windowX, floorY + floorHeight / 2, -depth / 2 - 0.1],
+          position: [windowX, floorY + floorHeight / 2, depth / 2],
           rotation: [0, Math.PI, 0],
           size: [1.5, 1.5],
           face: 'back',
@@ -132,7 +139,7 @@ export const generateWindowPositions = (config, buildingParams) => {
       if (randomBool(windowDensity, seed + floor * 0.01 + (i + frontBackWindowsPerFloor * 2) * 0.001)) {
         const windowZ = -depth / 2 + 1 + i * 2;
         windows.push({
-          position: [-width / 2 - 0.1, floorY + floorHeight / 2, windowZ],
+          position: [-width / 2, floorY + floorHeight / 2, windowZ],
           rotation: [0, -Math.PI / 2, 0],
           size: [1.5, 1.5],
           face: 'left',
@@ -146,7 +153,7 @@ export const generateWindowPositions = (config, buildingParams) => {
       if (randomBool(windowDensity, seed + floor * 0.01 + (i + frontBackWindowsPerFloor * 2 + leftRightWindowsPerFloor) * 0.001)) {
         const windowZ = -depth / 2 + 1 + i * 2;
         windows.push({
-          position: [width / 2 + 0.1, floorY + floorHeight / 2, windowZ],
+          position: [width / 2, floorY + floorHeight / 2, windowZ],
           rotation: [0, Math.PI / 2, 0],
           size: [1.5, 1.5],
           face: 'right',
@@ -165,39 +172,46 @@ export const generateDoorPositions = (buildingParams) => {
   
   const doors = [];
   
+  // Calculate door height
+  const mainDoorHeight = 3;
+  const secondaryDoorHeight = 2.5;
+  
+  // Door depth offset - ensures doors are flush with walls
+  const doorOffset = 0.05;
+  
   // Add a main entrance door
   const mainDoorSide = randomInt(0, 3, seed);
   
   switch (mainDoorSide) {
     case 0: // Front
       doors.push({
-        position: [random(-width / 4, width / 4, seed + 0.1), 0, depth / 2 + 0.1],
+        position: [random(-width / 4, width / 4, seed + 0.1), mainDoorHeight / 2, depth / 2 + doorOffset],
         rotation: [0, 0, 0],
-        size: [2, 3],
+        size: [2, mainDoorHeight],
         isMain: true,
       });
       break;
     case 1: // Right
       doors.push({
-        position: [width / 2 + 0.1, 0, random(-depth / 4, depth / 4, seed + 0.1)],
+        position: [width / 2 + doorOffset, mainDoorHeight / 2, random(-depth / 4, depth / 4, seed + 0.1)],
         rotation: [0, Math.PI / 2, 0],
-        size: [2, 3],
+        size: [2, mainDoorHeight],
         isMain: true,
       });
       break;
     case 2: // Back
       doors.push({
-        position: [random(-width / 4, width / 4, seed + 0.1), 0, -depth / 2 - 0.1],
+        position: [random(-width / 4, width / 4, seed + 0.1), mainDoorHeight / 2, -depth / 2 - doorOffset],
         rotation: [0, Math.PI, 0],
-        size: [2, 3],
+        size: [2, mainDoorHeight],
         isMain: true,
       });
       break;
     case 3: // Left
       doors.push({
-        position: [-width / 2 - 0.1, 0, random(-depth / 4, depth / 4, seed + 0.1)],
+        position: [-width / 2 - doorOffset, mainDoorHeight / 2, random(-depth / 4, depth / 4, seed + 0.1)],
         rotation: [0, -Math.PI / 2, 0],
-        size: [2, 3],
+        size: [2, mainDoorHeight],
         isMain: true,
       });
       break;
@@ -210,33 +224,33 @@ export const generateDoorPositions = (buildingParams) => {
     switch (secondaryDoorSide) {
       case 0: // Front
         doors.push({
-          position: [random(-width / 4, width / 4, seed + 0.4), 0, depth / 2 + 0.1],
+          position: [random(-width / 4, width / 4, seed + 0.4), secondaryDoorHeight / 2, depth / 2 + doorOffset],
           rotation: [0, 0, 0],
-          size: [1.5, 2.5],
+          size: [1.5, secondaryDoorHeight],
           isMain: false,
         });
         break;
       case 1: // Right
         doors.push({
-          position: [width / 2 + 0.1, 0, random(-depth / 4, depth / 4, seed + 0.4)],
+          position: [width / 2 + doorOffset, secondaryDoorHeight / 2, random(-depth / 4, depth / 4, seed + 0.4)],
           rotation: [0, Math.PI / 2, 0],
-          size: [1.5, 2.5],
+          size: [1.5, secondaryDoorHeight],
           isMain: false,
         });
         break;
       case 2: // Back
         doors.push({
-          position: [random(-width / 4, width / 4, seed + 0.4), 0, -depth / 2 - 0.1],
+          position: [random(-width / 4, width / 4, seed + 0.4), secondaryDoorHeight / 2, -depth / 2 - doorOffset],
           rotation: [0, Math.PI, 0],
-          size: [1.5, 2.5],
+          size: [1.5, secondaryDoorHeight],
           isMain: false,
         });
         break;
       case 3: // Left
         doors.push({
-          position: [-width / 2 - 0.1, 0, random(-depth / 4, depth / 4, seed + 0.4)],
+          position: [-width / 2 - doorOffset, secondaryDoorHeight / 2, random(-depth / 4, depth / 4, seed + 0.4)],
           rotation: [0, -Math.PI / 2, 0],
-          size: [1.5, 2.5],
+          size: [1.5, secondaryDoorHeight],
           isMain: false,
         });
         break;
