@@ -2,7 +2,7 @@
 
 A web-based 3D brutalist building generator built with React, Three.js, and React Three Fiber.
 
-![BRUTALIZER Screenshot](screenshot.png)
+![BRUTALIZER Screenshot](./built.jpg)
 
 ## About
 
