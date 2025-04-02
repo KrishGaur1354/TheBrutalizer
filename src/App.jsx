@@ -37,7 +37,7 @@ function App() {
     cloudDensity: 0.7,
     rooftopGarden: false,
     groundPark: false,
-    captureRequested: false,
+    seed: Math.random(),
   });
   
   const [showAboutModal, setShowAboutModal] = useState(false);
@@ -45,20 +45,31 @@ function App() {
   const [capturedImage, setCapturedImage] = useState(null);
   
   const handleConfigChange = (newConfig) => {
-    setBuildingConfig({ ...buildingConfig, ...newConfig });
+    setBuildingConfig({ 
+        ...buildingConfig, 
+        ...newConfig, 
+        seed: Math.random() 
+    });
   };
   
   const handleGenerateNew = () => {
-    // Trigger regeneration with random variations
     setBuildingConfig({
       ...buildingConfig,
       seed: Math.random(),
+      floors: 1 + Math.floor(Math.random() * 14),
+      width: 5 + Math.floor(Math.random() * 15),
+      depth: 5 + Math.floor(Math.random() * 15),
     });
   };
   
   const handleCaptureImage = (imageData) => {
     setCapturedImage(imageData);
     setShowShareModal(true);
+  };
+
+  const handleCaptureComplete = () => {
+    // No longer need to reset captureRequested flag
+    // Could potentially be used for other logic after capture if needed
   };
   
   return (
@@ -74,26 +85,12 @@ function App() {
           config={buildingConfig}
           onConfigChange={handleConfigChange}
           onGenerateNew={handleGenerateNew}
-          onCaptureImage={() => {
-            // The actual capture happens in the BrutalistScene component
-            // This just signals that we want to capture
-            setBuildingConfig({
-              ...buildingConfig,
-              captureRequested: true,
-            });
-          }}
         />
         
         <BrutalistScene 
           config={buildingConfig}
           onCaptureImage={handleCaptureImage}
-          onCaptureComplete={() => {
-            // Reset the capture requested flag
-            setBuildingConfig({
-              ...buildingConfig,
-              captureRequested: false,
-            });
-          }}
+          onCaptureComplete={handleCaptureComplete}
         />
       </ContentContainer>
       
