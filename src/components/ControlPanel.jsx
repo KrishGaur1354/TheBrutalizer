@@ -1,9 +1,9 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
-// Main container with improved readability
+// Main container with improved readability and collapsible functionality
 const ControlPanelContainer = styled.div`
-  width: 320px;
+  width: ${props => props.collapsed ? '45px' : '320px'};
   background: #dddddd;
   color: #222222;
   padding: 0;
@@ -18,10 +18,11 @@ const ControlPanelContainer = styled.div`
   border-right: 8px solid #888888;
   overflow: hidden;
   box-shadow: inset -5px 0 15px rgba(0, 0, 0, 0.1);
+  transition: width 0.3s ease-in-out;
   
   @media (max-width: 768px) {
     width: 100%;
-    max-height: 200px;
+    max-height: ${props => props.collapsed ? '50px' : '200px'};
   }
 `;
 
@@ -31,6 +32,9 @@ const TitleBlock = styled.div`
   padding: 12px 10px;
   border-bottom: 4px solid #666666;
   margin-bottom: 0;
+  display: flex;
+  justify-content: ${props => props.collapsed ? 'center' : 'space-between'};
+  align-items: center;
 `;
 
 // More legible title
@@ -44,6 +48,37 @@ const Title = styled.h2`
   color: #ffffff;
   padding: 8px;
   font-family: monospace;
+  
+  @media (max-width: 768px) {
+    font-size: ${props => props.collapsed ? '1.2rem' : '1.6rem'};
+  }
+`;
+
+// Toggle button for collapsing panel
+const ToggleButton = styled.button`
+  background: #666666;
+  color: #ffffff;
+  border: none;
+  width: 35px;
+  height: 35px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.1s ease;
+  border-radius: 2px;
+  box-shadow: 0px 2px 0px #444444;
+  
+  &:hover {
+    background: #555555;
+  }
+  
+  &:active {
+    transform: translateY(2px);
+    box-shadow: 0px 0px 0px #444444;
+  }
 `;
 
 // Enhanced scroll container
@@ -51,6 +86,7 @@ const ScrollContent = styled.div`
   overflow-y: auto;
   flex: 1;
   padding: 15px;
+  display: ${props => props.collapsed ? 'none' : 'block'};
   
   /* Improved scrollbar */
   &::-webkit-scrollbar {
@@ -239,6 +275,7 @@ const Checkbox = styled.input.attrs({ type: 'checkbox' })`
 
 function ControlPanel({ config, onConfigChange, onGenerateNew }) {
   const containerRef = useRef(null);
+  const [collapsed, setCollapsed] = useState(false);
   
   // Enhanced slider change handler
   const handleSliderChange = (e) => {
@@ -248,7 +285,8 @@ function ControlPanel({ config, onConfigChange, onGenerateNew }) {
   
   // Handle color changes
   const handleColorChange = (e) => {
-    onConfigChange({ concreteColor: e.target.value });
+    const { name, value } = e.target;
+    onConfigChange({ [name]: value });
   };
   
   // Handle checkbox changes
@@ -257,133 +295,163 @@ function ControlPanel({ config, onConfigChange, onGenerateNew }) {
     onConfigChange({ [name]: checked });
   };
   
+  // Toggle panel collapse state
+  const toggleCollapse = () => {
+    setCollapsed(!collapsed);
+  };
+  
   return (
-    <ControlPanelContainer ref={containerRef}>
-      <TitleBlock>
-        <Title>CONTROLS</Title>
+    <ControlPanelContainer ref={containerRef} collapsed={collapsed}>
+      <TitleBlock collapsed={collapsed}>
+        {!collapsed && <Title>CONTROLS</Title>}
+        <ToggleButton onClick={toggleCollapse}>
+          {collapsed ? '→' : '←'}
+        </ToggleButton>
       </TitleBlock>
       
-      <ScrollContent>
-        <ControlButton onClick={onGenerateNew}>
-          GENERATE NEW
-        </ControlButton>
+      <ScrollContent collapsed={collapsed}>
+        <ControlButton onClick={onGenerateNew}>GENERATE NEW</ControlButton>
         
+        {/* Building Controls */}
         <ControlSection>
-          <ControlLabel>BUILDING SIZE</ControlLabel>
+          <ControlLabel>BUILDING STRUCTURE</ControlLabel>
           
           <SliderContainer>
-            <Slider
-              name="floors"
-              min="1"
-              max="15"
-              step="1"
-              value={config.floors}
-              onChange={handleSliderChange}
+            <label>FLOORS</label>
+            <Slider 
+              name="floors" 
+              min="1" 
+              max="15" 
+              value={config.floors} 
+              onChange={handleSliderChange} 
             />
-            <SliderValue>{config.floors} FL</SliderValue>
+            <SliderValue>{config.floors}</SliderValue>
           </SliderContainer>
           
           <SliderContainer>
-            <Slider
-              name="width"
-              min="5"
-              max="20"
-              step="1"
-              value={config.width}
-              onChange={handleSliderChange}
+            <label>WIDTH</label>
+            <Slider 
+              name="width" 
+              min="5" 
+              max="20" 
+              value={config.width} 
+              onChange={handleSliderChange} 
             />
-            <SliderValue>W: {config.width}</SliderValue>
+            <SliderValue>{config.width}</SliderValue>
           </SliderContainer>
           
           <SliderContainer>
-            <Slider
-              name="depth"
-              min="5"
-              max="20"
-              step="1"
-              value={config.depth}
-              onChange={handleSliderChange}
+            <label>DEPTH</label>
+            <Slider 
+              name="depth" 
+              min="5" 
+              max="20" 
+              value={config.depth} 
+              onChange={handleSliderChange} 
             />
-            <SliderValue>D: {config.depth}</SliderValue>
+            <SliderValue>{config.depth}</SliderValue>
           </SliderContainer>
         </ControlSection>
         
+        {/* Texture Controls */}
         <ControlSection>
-          <ControlLabel>WINDOWS</ControlLabel>
+          <ControlLabel>TEXTURE & APPEARANCE</ControlLabel>
+          
           <SliderContainer>
-            <Slider
-              name="windowDensity"
-              min="0"
-              max="1"
-              step="0.05"
-              value={config.windowDensity}
-              onChange={handleSliderChange}
+            <label>WINDOW DENSITY</label>
+            <Slider 
+              name="windowDensity" 
+              min="0" 
+              max="1" 
+              step="0.1" 
+              value={config.windowDensity} 
+              onChange={handleSliderChange} 
             />
-            <SliderValue>{(config.windowDensity * 100).toFixed(0)}%</SliderValue>
+            <SliderValue>{config.windowDensity.toFixed(1)}</SliderValue>
           </SliderContainer>
-        </ControlSection>
-        
-        <ControlSection>
-          <ControlLabel>CONCRETE</ControlLabel>
+          
           <SliderContainer>
-            <Slider
-              name="textureRoughness"
-              min="0"
-              max="1"
-              step="0.05"
-              value={config.textureRoughness}
-              onChange={handleSliderChange}
+            <label>TEXTURE ROUGHNESS</label>
+            <Slider 
+              name="textureRoughness" 
+              min="0" 
+              max="1" 
+              step="0.1" 
+              value={config.textureRoughness} 
+              onChange={handleSliderChange} 
             />
-            <SliderValue>{(config.textureRoughness * 100).toFixed(0)}%</SliderValue>
+            <SliderValue>{config.textureRoughness.toFixed(1)}</SliderValue>
+          </SliderContainer>
+          
+          <SliderContainer>
+            <label>CLOUD DENSITY</label>
+            <Slider 
+              name="cloudDensity" 
+              min="0" 
+              max="1" 
+              step="0.1" 
+              value={config.cloudDensity} 
+              onChange={handleSliderChange} 
+            />
+            <SliderValue>{config.cloudDensity.toFixed(1)}</SliderValue>
           </SliderContainer>
           
           <ColorPickerContainer>
-            <ColorPicker
-              value={config.concreteColor}
-              onChange={handleColorChange}
+            <label>CONCRETE COLOR</label>
+            <ColorPicker 
+              name="concreteColor" 
+              value={config.concreteColor} 
+              onChange={handleColorChange} 
             />
           </ColorPickerContainer>
         </ControlSection>
         
+        {/* Additional Controls */}
         <ControlSection>
-          <ControlLabel>ENVIRONMENT</ControlLabel>
+          <ControlLabel>ADDITIONAL FEATURES</ControlLabel>
           
           <CheckboxContainer>
             <CheckboxLabel>
-              <Checkbox
-                name="rooftopGarden"
-                checked={config.rooftopGarden || false}
+              <Checkbox 
+                name="rooftopGarden" 
+                checked={config.rooftopGarden} 
                 onChange={handleCheckboxChange}
               />
-              <span>Rooftop Garden</span>
+              <span>ROOFTOP GARDEN</span>
             </CheckboxLabel>
           </CheckboxContainer>
           
           <CheckboxContainer>
             <CheckboxLabel>
-              <Checkbox
-                name="groundPark"
-                checked={config.groundPark || false}
+              <Checkbox 
+                name="groundPark" 
+                checked={config.groundPark} 
                 onChange={handleCheckboxChange}
               />
-              <span>Ground Park</span>
+              <span>GROUND PARK</span>
             </CheckboxLabel>
           </CheckboxContainer>
-          
-          <SliderContainer>
-            <Slider
-              name="cloudDensity"
-              min="0"
-              max="1"
-              step="0.05"
-              value={config.cloudDensity || 0.7}
-              onChange={handleSliderChange}
-            />
-            <SliderValue>{((config.cloudDensity || 0.7) * 100).toFixed(0)}%</SliderValue>
-          </SliderContainer>
         </ControlSection>
         
-        {/* Export button removed as requested */}
+        {/* Building Name Input */}
+        <ControlSection>
+          <ControlLabel>BUILDING NAME</ControlLabel>
+          <input 
+            type="text" 
+            name="buildingName" 
+            value={config.buildingName} 
+            onChange={(e) => onConfigChange({ buildingName: e.target.value })} 
+            style={{ 
+              width: '100%', 
+              padding: '10px',
+              fontSize: '16px',
+              fontFamily: 'monospace',
+              marginTop: '5px',
+              border: 'none',
+              background: '#bbbbbb'
+            }}
+          />
+        </ControlSection>
       </ScrollContent>
     </ControlPanelContainer>
   );

@@ -231,7 +231,7 @@ function ConcreteGround({ groundPark = false, seed }) {
   }
 }
 
-// Procedural clouds component with optimized cloud rendering
+// Procedural clouds component with optimized cloud rendering and reduced height
 function ProceduralSky({ cloudDensity = 0.7 }) {
   const sunRef = useRef();
   const sunPosition = useMemo(() => new THREE.Vector3(100, 50, 100), []);
@@ -249,54 +249,68 @@ function ProceduralSky({ cloudDensity = 0.7 }) {
       const distance = 50 + (i * 15) % 50; // More structured placement to reduce randomness
       const x = Math.cos(angle) * distance;
       const z = Math.sin(angle) * distance;
-      const y = 80 + ((i * 10) % 40); // Higher elevation with structured variation
       
-      // Limit max cloud width to prevent texture size issues
-      const width = 40 + ((i * 5) % 30);
-      const depth = 3 + ((i * 0.5) % 4);
+      // REDUCED CLOUD HEIGHT: Lower the y position by 30-40%
+      const y = 25 + Math.floor((i % 3) * 10); // Reduced from previous height values of ~50-80
+      
+      // Reduced cloud width too
+      const width = 16 + Math.floor((i % 5) * 3);
+      const depth = 16 + Math.floor((i % 5) * 3);
+      const height = 4 + Math.floor((i % 3) * 2);
       
       clouds.push({
         position: [x, y, z],
-        opacity: cloudOpacity * (0.8 + ((i * 0.05) % 0.4)),
-        speed: 0.05 + ((i * 0.02) % 0.15),
-        width: width,
-        depth: depth,
-        segments: Math.min(8 + Math.floor(width / 15), 12), // Reduced segment count
+        size: [width, height, depth],
+        opacity: cloudOpacity,
       });
     }
-    
     return clouds;
   }, [cloudDensity]);
   
-  // Optimize sun animation to be less resource-intensive
-  useFrame(({ clock }) => {
-    const time = clock.getElapsedTime() * 0.03; // Slower movement
-    sunRef.current.position.x = Math.cos(time) * 100;
-    sunRef.current.position.z = Math.sin(time) * 100;
-    sunRef.current.position.y = 50 + Math.sin(time/2) * 20; // Slower vertical movement
-  });
-
   return (
-    <>
-      {/* Sun sphere */}
-      <mesh ref={sunRef} position={sunPosition.toArray()}>
-        <sphereGeometry args={[5, 8, 8]} /> {/* Reduced geometry complexity */}
-        <meshBasicMaterial color="#FDB813" />
-      </mesh>
+    <group>
+      {/* Sun (directional light) */}
+      <directionalLight 
+        ref={sunRef}
+        intensity={1} 
+        position={sunPosition} 
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-far={100}
+        shadow-camera-left={-50}
+        shadow-camera-right={50}
+        shadow-camera-top={50}
+        shadow-camera-bottom={-50}
+      />
       
-      {/* Optimized cloud rendering */}
-      {cloudParams.map((cloud, index) => (
-        <Cloud
-          key={`cloud-${index}`}
-          opacity={cloud.opacity}
-          speed={cloud.speed}
-          width={cloud.width}
-          depth={cloud.depth}
-          segments={cloud.segments}
+      {/* Ambient light */}
+      <ambientLight intensity={0.5} />
+      
+      {/* Hemisphere light for better scene illumination */}
+      <hemisphereLight
+        intensity={0.3}
+        color="#ffffff"
+        groundColor="#bbbbbb"
+      />
+      
+      {/* Sky background - changed to gray */}
+      <color attach="background" args={['#888888']} />
+      
+      {/* Performance optimized clouds */}
+      {cloudParams.map((cloud, i) => (
+        <Cloud 
+          key={`cloud-${i}`}
           position={cloud.position}
+          args={cloud.size}
+          opacity={cloud.opacity}
+          speed={0.2} // Reduced cloud animation speed for performance
+          segments={6} // Reduced from standard 10+ for better performance
+          depth={cloud.size[2] * 0.4} // Reduced internal segments
+          fade={100} // Increased fade distance
         />
       ))}
-    </>
+    </group>
   );
 }
 
@@ -306,13 +320,17 @@ function CameraSetup({ config }) {
   
   // Calculate camera position based on building size
   useEffect(() => {
-    const { width, depth, floors } = config;
-    const size = Math.max(width, depth, floors * 3);
-    const distance = size * 2;
-    
-    camera.position.set(distance, distance * 0.7, distance);
-    camera.lookAt(0, floors * 1.5, 0);
-    camera.updateProjectionMatrix();
+    try {
+      const { width, depth, floors } = config;
+      const size = Math.max(width, depth, floors * 3);
+      const distance = size * 2;
+      
+      camera.position.set(distance, distance * 0.7, distance);
+      camera.lookAt(0, floors * 1.5, 0);
+      camera.updateProjectionMatrix();
+    } catch (err) {
+      console.error("Camera setup error:", err);
+    }
   }, [camera, config]);
   
   return null;
@@ -348,93 +366,102 @@ function LightingSetup() {
   );
 }
 
-// Classic cars component
+// Improved ClassicCars component with better performance and realistic movement
 function ClassicCars({ buildingSize }) {
-  const cars = useMemo(() => {
-    const carCount = 5;
-    const roads = [];
+  const ROAD_MARGIN = 15; // Distance from building to place cars
+  const NUM_ROADS = 4; // 4 roads around the building
+  const MAX_CARS_PER_ROAD = 4; // Maximum cars per road to prevent performance issues
+
+  // Car data with calculated roads
+  const carData = useMemo(() => {
+    const data = [];
+    const buildingRadius = Math.sqrt(Math.pow(buildingSize.width/2, 2) + Math.pow(buildingSize.depth/2, 2));
+    const roadRadius = buildingRadius + ROAD_MARGIN;
     
-    // Create a grid of roads around the building
-    const gridSize = Math.max(buildingSize.width, buildingSize.depth) * 3;
-    const roadWidth = 6;
-    
-    // Horizontal roads
-    for (let z = -gridSize; z <= gridSize; z += gridSize / 2) {
-      roads.push({
-        start: [-gridSize, 0, z],
-        end: [gridSize, 0, z],
-        direction: [1, 0, 0]
-      });
+    // Generate cars for each road
+    for (let roadIndex = 0; roadIndex < NUM_ROADS; roadIndex++) {
+      const numCars = 2 + Math.floor(Math.random() * (MAX_CARS_PER_ROAD - 1));
+      const angle = (roadIndex / NUM_ROADS) * Math.PI * 2;
+      
+      // Road start and end positions
+      const roadX = Math.cos(angle) * roadRadius;
+      const roadZ = Math.sin(angle) * roadRadius;
+      const roadLength = 60; // Fixed road length
+      
+      // Generate cars on this road
+      for (let carIndex = 0; carIndex < numCars; carIndex++) {
+        // Distribute cars evenly along the road
+        const roadProgress = (carIndex / numCars) * roadLength;
+        
+        // Calculate initial car positions
+        const carX = roadX - roadProgress * Math.cos(angle);
+        const carZ = roadZ - roadProgress * Math.sin(angle);
+        
+        data.push({
+          id: `car-${roadIndex}-${carIndex}`,
+          position: [carX, 0, carZ],
+          rotation: [0, angle, 0],
+          carType: Math.floor(Math.random() * 3),
+          color: ['#a31621', '#3c91e6', '#342e37', '#fafffd', '#fb8b24'][Math.floor(Math.random() * 5)],
+          speed: 0.02 + Math.random() * 0.04,
+          roadIndex,
+          roadAngle: angle,
+          roadLength,
+        });
+      }
     }
-    
-    // Vertical roads
-    for (let x = -gridSize; x <= gridSize; x += gridSize / 2) {
-      roads.push({
-        start: [x, 0, -gridSize],
-        end: [x, 0, gridSize],
-        direction: [0, 0, 1]
-      });
-    }
-    
-    // Create cars for each road - use regular Math.random since we don't need seeded randomness here
-    return Array(carCount).fill().map((_, i) => {
-      const roadIndex = i % roads.length;
-      const road = roads[roadIndex];
-      const direction = road.direction;
-      
-      // Random position along the road
-      const progress = Math.random();
-      const position = [
-        road.start[0] + (road.end[0] - road.start[0]) * progress,
-        0.5, // Slightly above ground
-        road.start[2] + (road.end[2] - road.start[2]) * progress
-      ];
-      
-      // Calculate rotation based on direction
-      const rotation = [0, direction[0] === 0 ? Math.PI / 2 : 0, 0];
-      
-      // Randomize car attributes
-      const speed = 0.03 + Math.random() * 0.05;
-      const carType = Math.floor(Math.random() * 3); // 0, 1, or 2 for different car types
-      const color = ['#a31621', '#2e86ab', '#207178', '#60492c', '#4b4237'][Math.floor(Math.random() * 5)];
-      
-      return {
-        roadIndex,
-        position,
-        rotation,
-        speed,
-        carType,
-        color,
-        progress
-      };
-    });
+    return data;
   }, [buildingSize]);
   
-  // Move cars along roads
-  useFrame(({ clock }) => {
-    const deltaTime = clock.getElapsedTime() * 0.1;
-    
-    cars.forEach(car => {
-      car.progress += car.speed * 0.01;
-      
-      // Reset position if car reaches the end of the road
-      if (car.progress > 1) {
-        car.progress = 0;
-      }
-    });
+  // Update car positions in animation frame
+  const [cars, setCars] = useState(carData);
+  
+  useFrame(() => {
+    setCars(prevCars => 
+      prevCars.map(car => {
+        // Move car along its road
+        const newPosition = [...car.position];
+        const moveX = Math.cos(car.roadAngle) * car.speed;
+        const moveZ = Math.sin(car.roadAngle) * car.speed;
+        
+        newPosition[0] -= moveX;
+        newPosition[2] -= moveZ;
+        
+        // Calculate distance from road center to determine when to reset
+        const distanceFromCenter = Math.sqrt(
+          Math.pow(newPosition[0] - Math.cos(car.roadAngle) * (buildingSize.width/2 + ROAD_MARGIN), 2) +
+          Math.pow(newPosition[2] - Math.sin(car.roadAngle) * (buildingSize.depth/2 + ROAD_MARGIN), 2)
+        );
+        
+        // Reset car position if moved too far
+        if (distanceFromCenter > car.roadLength) {
+          const roadRadius = Math.sqrt(Math.pow(buildingSize.width/2, 2) + Math.pow(buildingSize.depth/2, 2)) + ROAD_MARGIN;
+          const roadX = Math.cos(car.roadAngle) * roadRadius;
+          const roadZ = Math.sin(car.roadAngle) * roadRadius;
+          
+          return {
+            ...car,
+            position: [roadX, 0, roadZ],
+          };
+        }
+        
+        return {
+          ...car,
+          position: newPosition,
+        };
+      })
+    );
   });
   
   return (
     <group>
-      {cars.map((car, i) => (
+      {cars.map(car => (
         <Car
-          key={`car-${i}`}
+          key={car.id}
           position={car.position}
           rotation={car.rotation}
           carType={car.carType}
           color={car.color}
-          progress={car.progress}
-          roadIndex={car.roadIndex}
         />
       ))}
     </group>
@@ -533,230 +560,163 @@ function CityLayout({ config }) {
   );
 }
 
-// Define keyboard controls map
-const controlsMap = [
-  { name: 'forward', keys: ['ArrowUp', 'w', 'W'] },
-  { name: 'backward', keys: ['ArrowDown', 's', 'S'] },
-  { name: 'left', keys: ['ArrowLeft', 'a', 'A'] },
-  { name: 'right', keys: ['ArrowRight', 'd', 'D'] },
-  { name: 'brake', keys: ['Space'] },
-];
-
 // Main Scene component with camera switching and physics
 function Scene({ config, cameraMode, playerCarRef }) {
-  const { camera } = useThree();
-  const [capturedImageUrl, setCapturedImageUrl] = useState(null);
-  const [showShareOptions, setShowShareOptions] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   
-  // Building params used for benches, cars etc. (refers to the central building)
-  const centralBuildingParams = useMemo(() => {
-    return {
-      width: config.width,
-      depth: config.depth,
-      // other params if needed
-    };
-  }, [config.width, config.depth]);
+  // Calculate building size for various components
+  const buildingSize = useMemo(() => ({
+    width: config.width,
+    depth: config.depth,
+    height: config.floors * 3 // Each floor is 3 units tall
+  }), [config.width, config.depth, config.floors]);
   
-  // Position benches around the *central* building area (or could be moved to GroundPark)
-  const benchPositions = useMemo(() => {
-      if (!config.groundPark) return []; // Only show if park is enabled
-      const positions = [];
-      const { width, depth } = centralBuildingParams; 
-      // Adjust placement relative to central park area if needed
-      // Example placement (might need adjustment based on park layout):
-      positions.push({ position: [-width/4, 0, -depth/2 - 3], rotation: [0, 0, 0] });
-      positions.push({ position: [width/4, 0, -depth/2 - 3], rotation: [0, 0, 0] });
-      positions.push({ position: [-width/2 - 3, 0, 0], rotation: [0, Math.PI/2, 0] });
-      positions.push({ position: [width/2 + 3, 0, 0], rotation: [0, -Math.PI/2, 0] });
-      return positions;
-  }, [centralBuildingParams, config.groundPark]);
-
-  // Set camera position based on mode
+  // Ensure scene is initialized
   useEffect(() => {
-    if (cameraMode === 'orbit') {
-      // Reset orbit controls target and position if switching back
-      // (OrbitControls manages its own position based on user input)
-    } 
-    // In 'player' mode, the PlayerCar component will manage the camera
-  }, [cameraMode, camera]); 
-
+    // Slight delay to ensure physics world is ready
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
   return (
-    <Suspense fallback={null}>
-      <Physics gravity={[0, -9.81, 0]}>
-        <PlayerCar ref={playerCarRef} cameraMode={cameraMode} />
-        <CityLayout config={config} />
-        
-        <ProceduralSky cloudDensity={config.cloudDensity || 0.7} />
-        
-        <ConcreteGround groundPark={config.groundPark || false} seed={config.seed} />
-        
-        <ContactShadows
-          position={[0, 0, 0]}
-          opacity={0.5}
-          scale={100}
-          blur={1}
-          far={10}
-          resolution={512}
-          color="#000000"
-        />
-        
-        <EffectComposer multisampling={2}>
-          <SSAO
-            blendFunction={BlendFunction.MULTIPLY}
-            samples={10}
-            radius={2}
-            intensity={3}
-          />
-          <Bloom
-            intensity={0.05}
-            luminanceThreshold={0.8}
-            luminanceSmoothing={0.9}
-          />
-          <ToneMapping
-            blendFunction={BlendFunction.NORMAL}
-            adaptive={true}
-            resolution={256}
-            middleGrey={0.6}
-            maxLuminance={16.0}
-            averageLuminance={1.0}
-            adaptationRate={1.0}
-          />
-        </EffectComposer>
-      </Physics>
+    <>
+      {/* Camera setup based on mode */}
+      <CameraSetup config={config} />
       
-      {showShareOptions && capturedImageUrl && (
-        <Html fullscreen>
-          <div onClick={() => setShowShareOptions(false)} style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            background: 'rgba(0,0,0,0.7)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000
-          }}>
-            <SharePanel 
-              imageUrl={capturedImageUrl} 
-              onClose={() => setShowShareOptions(false)}
-              buildingName={config.buildingName}
-            />
-          </div>
-        </Html>
-      )}
-    </Suspense>
+      {/* Performance optimized lighting */}
+      <LightingSetup />
+      
+      {/* Main building with physics */}
+      <PhysicsBuilding 
+        buildingKey={`building-${config.seed}`}
+        config={config} 
+        position={[0, 0, 0]} 
+      />
+      
+      {/* Ground */}
+      <ConcreteGround groundPark={config.groundPark} seed={config.seed} />
+      
+      {/* Procedural sky with clouds */}
+      <ProceduralSky cloudDensity={config.cloudDensity} />
+      
+      {/* Physics-aware player-controlled car */}
+      {isReady && <PlayerCar ref={playerCarRef} cameraMode={cameraMode} />}
+      
+      {/* Decorative cars around the building */}
+      <ClassicCars buildingSize={buildingSize} />
+      
+      {/* Create a full city layout around the main building */}
+      <CityLayout config={config} />
+    </>
   );
 }
 
 // Main component that wraps the Canvas
-function BrutalistScene({ config, onCaptureImage, onCaptureComplete }) {
-  const canvasContainerRef = useRef();
-  const controlsRef = useRef();
-  const playerCarRef = useRef();
+function BrutalistScene({ config, onCaptureImage, playerCarRef }) {
+  const canvasRef = useRef();
+  const orbitControlsRef = useRef();
   const [cameraMode, setCameraMode] = useState('orbit');
-
-  const handleScreenshot = useCallback(() => {
-    if (!canvasContainerRef.current) return;
-    
-    const elementToCapture = canvasContainerRef.current;
-    
-    toPng(elementToCapture, { 
-        backgroundColor: '#d0d0d0',
-        pixelRatio: window.devicePixelRatio || 1,
-    })
-      .then(imageUrl => {
-        if (onCaptureImage) {
-          onCaptureImage(imageUrl);
-        }
-        if (onCaptureComplete) {
-          onCaptureComplete(); 
-        }
-      })
-      .catch(error => {
-        console.error('Error capturing image using html-to-image:', error);
-        if (onCaptureComplete) {
-          onCaptureComplete();
-        }
-      });
-  }, [onCaptureImage, onCaptureComplete]);
+  const [captureRequested, setCaptureRequested] = useState(false);
   
-  const handleZoomIn = useCallback(() => {
-    if (controlsRef.current) {
-      const currentDistance = controlsRef.current.getDistance();
-      controlsRef.current.dollyIn(1.2);
-      controlsRef.current.update();
-    }
-  }, []);
+  // Handle camera toggle
+  const toggleCameraMode = () => {
+    setCameraMode(prev => prev === 'orbit' ? 'player' : 'orbit');
+  };
   
-  const handleZoomOut = useCallback(() => {
-    if (controlsRef.current) {
-      const currentDistance = controlsRef.current.getDistance();
-      controlsRef.current.dollyOut(1.2);
-      controlsRef.current.update();
-    }
-  }, []);
+  // Request a screenshot capture
+  const requestCapture = () => {
+    setCaptureRequested(true);
+  };
   
-  const toggleCameraMode = useCallback(() => {
-    setCameraMode(prevMode => (prevMode === 'orbit' ? 'player' : 'orbit'));
-  }, []);
-
-  // Disable OrbitControls when in player mode
+  // Enable/disable orbit controls based on camera mode
   useEffect(() => {
-    if (controlsRef.current) {
-      controlsRef.current.enabled = (cameraMode === 'orbit');
+    if (orbitControlsRef.current) {
+      orbitControlsRef.current.enabled = (cameraMode === 'orbit');
     }
   }, [cameraMode]);
-
+  
+  // Update orbit controls target when building size changes
+  useEffect(() => {
+    if (orbitControlsRef.current) {
+      orbitControlsRef.current.target.set(0, config.floors * 1.5 / 2, 0);
+      orbitControlsRef.current.update();
+    }
+  }, [config.floors]);
+  
+  // Handle the screenshot capture
+  useEffect(() => {
+    if (captureRequested && canvasRef.current) {
+      try {
+        const imageData = captureCanvasImage(canvasRef.current);
+        onCaptureImage(imageData);
+      } catch (err) {
+        console.error("Image capture error:", err);
+      }
+      setCaptureRequested(false);
+    }
+  }, [captureRequested, onCaptureImage]);
+  
   return (
-    <CanvasContainer ref={canvasContainerRef} className="brutalist-canvas-container">
-      <ZoomInButton onClick={handleZoomIn}>+</ZoomInButton>
-      <ZoomOutButton onClick={handleZoomOut}>-</ZoomOutButton>
-      <CameraToggleButton onClick={toggleCameraMode}>
-        {cameraMode === 'orbit' ? 'Enter Car' : 'Orbit Cam'}
-      </CameraToggleButton>
-      <ScreenshotButton onClick={handleScreenshot}>CAPTURE</ScreenshotButton>
+    <CanvasContainer>
+      <Canvas 
+        ref={canvasRef}
+        shadows 
+        dpr={[1, 2]} // Limit max pixel ratio to 2 for performance
+        gl={{ 
+          antialias: true,
+          // Disable depth textures for better performance
+          depth: true,
+          stencil: false,
+          alpha: false,
+          powerPreference: "high-performance"
+        }}
+        camera={{ position: [40, 25, 40], fov: 45 }}
+      >
+        <KeyboardControls
+          map={[
+            { name: 'forward', keys: ['ArrowUp', 'w', 'W'] },
+            { name: 'backward', keys: ['ArrowDown', 's', 'S'] },
+            { name: 'left', keys: ['ArrowLeft', 'a', 'A'] },
+            { name: 'right', keys: ['ArrowRight', 'd', 'D'] },
+            { name: 'brake', keys: ['Space'] },
+            { name: 'shift', keys: ['ShiftLeft', 'ShiftRight'] }
+          ]}
+        >
+          <Suspense fallback={null}>
+            <Physics 
+              gravity={[0, -30, 0]} 
+              timeStep={1/60}
+              interpolation={true}
+            >
+              <Scene config={config} cameraMode={cameraMode} playerCarRef={playerCarRef} />
+            </Physics>
+            
+            {/* Add orbit controls */}
+            {cameraMode === 'orbit' && (
+              <OrbitControls 
+                ref={orbitControlsRef}
+                enablePan={true}
+                enableZoom={true}
+                enableRotate={true}
+                minDistance={5}
+                maxDistance={200}
+                target={[0, config.floors * 1.5 / 2, 0]}
+              />
+            )}
+          </Suspense>
+        </KeyboardControls>
+      </Canvas>
       
-      <KeyboardControls map={controlsMap}>
-        <Canvas shadows dpr={[1, 2]}>
-          {cameraMode === 'orbit' && (
-            <PerspectiveCamera makeDefault fov={45} near={0.1} far={1000} position={[50, 50, 50]} />
-          )}
-          
-          <color attach="background" args={['#d0d0d0']} />
-          <ambientLight intensity={0.7} />
-          <directionalLight
-            ref={controlsRef}
-            position={[10, 20, 15]}
-            intensity={1.5}
-            castShadow
-            shadow-mapSize-width={2048}
-            shadow-mapSize-height={2048}
-            shadow-camera-far={50}
-            shadow-camera-left={-20}
-            shadow-camera-right={20}
-            shadow-camera-top={20}
-            shadow-camera-bottom={-20}
-          />
-          
-          <Scene config={config} cameraMode={cameraMode} playerCarRef={playerCarRef} />
-          
-          {cameraMode === 'orbit' && (
-            <OrbitControls 
-              ref={controlsRef}
-              enablePan={true}
-              enableZoom={true}
-              enableRotate={true}
-              minDistance={5}
-              maxDistance={200}
-              target={[0, config.floors * 1.5 / 2, 0]}
-            />
-          )}
-          
-          <Environment preset="city" />
-        </Canvas>
-      </KeyboardControls>
+      <CameraToggleButton onClick={toggleCameraMode}>
+        {cameraMode === 'orbit' ? 'DRIVE MODE' : 'ORBIT MODE'}
+      </CameraToggleButton>
+      
+      <ScreenshotButton onClick={requestCapture}>
+        CAPTURE
+      </ScreenshotButton>
     </CanvasContainer>
   );
 }
